@@ -3,26 +3,19 @@
   "nodes": [
     {
       "parameters": {
-        "updates": [
-          "message"
-        ],
-        "additionalFields": {}
+        "httpMethod": "POST",
+        "path": "tg-rossell-ai-bot-001",
+        "options": {}
       },
       "id": "tg-trigger-001",
-      "name": "Telegram Trigger",
-      "type": "n8n-nodes-base.telegramTrigger",
+      "name": "Telegram Webhook",
+      "type": "n8n-nodes-base.webhook",
       "position": [
         -784,
         -160
       ],
       "webhookId": "tg-rossell-ai-bot-001",
-      "typeVersion": 1.1,
-      "credentials": {
-        "telegramApi": {
-          "id": "zvjgk4LEYRX0jQsl",
-          "name": "Rossell AI Bot"
-        }
-      }
+      "typeVersion": 2
     },
     {
       "parameters": {
@@ -32,25 +25,25 @@
               "id": "a1",
               "name": "chatInput",
               "type": "string",
-              "value": "={{ $json.message.text }}"
+              "value": "={{ .body.message.text }}"
             },
             {
               "id": "a2",
               "name": "telegramChatId",
               "type": "string",
-              "value": "={{ $json.message.chat.id }}"
+              "value": "={{ .body.message.chat.id }}"
             },
             {
               "id": "a3",
               "name": "sessionId",
               "type": "string",
-              "value": "=tg-{{ $json.message.chat.id }}"
+              "value": "=tg-{{ .body.message.chat.id }}"
             },
             {
               "id": "a4",
               "name": "fromName",
               "type": "string",
-              "value": "={{ $json.message.from.first_name }}"
+              "value": "={{ .body.message.from.first_name }}"
             }
           ]
         },
