@@ -23,6 +23,36 @@ services:
     depends_on:
       - n8n
 
+  tunnel-watcher:
+    image: alpine:latest
+    container_name: n8n-tunnel-watcher
+    restart: unless-stopped
+    depends_on:
+      - cloudflared
+    environment:
+      - ATLAS_TOKEN=8296459115:AAErBbp8-LVhhontNzKLNwnSpPUHTCL7rtk
+      - WEBHOOK_PATH=/webhook/tg-rossell-ai-bot-001
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: /bin/sh
+    command: >
+      -c "
+        apk add --no-cache curl docker-cli > /dev/null 2>&1;
+        LAST_URL='';
+        echo 'Tunnel watcher started';
+        while true; do
+          TUNNEL_URL=$$(docker logs n8n-cloudflared 2>&1 | grep -o 'https://[a-z0-9-]*\\.trycloudflare\\.com' | tail -1);
+          if [ -n \"$$TUNNEL_URL\" ] && [ \"$$TUNNEL_URL\" != \"$$LAST_URL\" ]; then
+            FULL_URL=\"$${TUNNEL_URL}$${WEBHOOK_PATH}\";
+            echo \"New tunnel URL: $$FULL_URL\";
+            RESULT=$$(curl -s \"https://api.telegram.org/bot$${ATLAS_TOKEN}/setWebhook\" --data-urlencode \"url=$$FULL_URL\");
+            echo \"Telegram: $$RESULT\";
+            LAST_URL=\"$$TUNNEL_URL\";
+          fi;
+          sleep 15;
+        done
+      "
+
   n8n:
     build: .
     container_name: n8n-skills-agent
