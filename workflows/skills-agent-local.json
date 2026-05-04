@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst BASE = '/files/skills';\n\nfunction walk(dir) {\n  try {\n    return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => {\n      const full = path.join(dir, e.name);\n      const rel  = path.relative(BASE, full);\n      if (e.isDirectory()) return [{ type: 'dir', path: rel }, ...walk(full)];\n      return [{ type: 'file', path: rel }];\n    });\n  } catch(e) { return []; }\n}\n\nconst skills = walk(BASE);\nreturn [{ json: { skills: JSON.stringify(skills, null, 2) } }];"
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst BASE = '/files/skills';\n\n// Top-level dirs only \u2014 agent uses list_local_skills_dir tool to drill deeper\nconst entries = fs.readdirSync(BASE, { withFileTypes: true })\n  .filter(e => !e.name.startsWith('.'))\n  .map(e => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' }));\n\nreturn [{ json: { skills: JSON.stringify(entries, null, 2) } }];"
       },
       "id": "aa11bb22-cc33-dd44-ee55-ff6677889900",
       "name": "Read Local Skills",
@@ -51,15 +51,24 @@
       "typeVersion": 3.1
     },
     {
-      "parameters": {},
+      "parameters": {
+        "sessionIdType": "fromInput",
+        "tableName": "n8n_chat_memory"
+      },
       "id": "670b4a12-57b3-45dd-8395-bab870d85ef5",
-      "name": "Simple Memory",
-      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "name": "Postgres Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
       "position": [
         688,
         192
       ],
-      "typeVersion": 1.3
+      "typeVersion": 1.3,
+      "credentials": {
+        "postgres": {
+          "id": "FTIHSVoh2R1N2OcU",
+          "name": "n8n Postgres"
+        }
+      }
     },
     {
       "parameters": {
