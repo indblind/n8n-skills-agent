@@ -4,7 +4,8 @@
 
 set -e
 
-ATLAS_TOKEN="8296459115:AAErBbp8-LVhhontNzKLNwnSpPUHTCL7rtk"
+ROSSELL_AI_TOKEN="8104577186:AAHEwlQcQ65UUqiXrN_OnbAho81fToGD4Bo"
+# NOTE: Atlas bot (8296459115) is reserved for openclaw polling — do NOT register a webhook on it
 WEBHOOK_ID="tg-rossell-ai-bot-001"
 
 echo "Waiting for cloudflared tunnel URL..."
@@ -32,7 +33,7 @@ WEBHOOK_PATH="$TUNNEL_URL/webhook/$WEBHOOK_ID"
 echo "Telegram webhook: $WEBHOOK_PATH"
 
 # Register with Telegram
-RESULT=$(curl -s "https://api.telegram.org/bot${ATLAS_TOKEN}/setWebhook" \
+RESULT=$(curl -s "https://api.telegram.org/bot${ROSSELL_AI_TOKEN}/setWebhook" \
   --data-urlencode "url=$WEBHOOK_PATH")
 
 echo "Telegram response: $RESULT"

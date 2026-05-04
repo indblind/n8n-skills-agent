@@ -25,25 +25,25 @@
               "id": "a1",
               "name": "chatInput",
               "type": "string",
-              "value": "={{ .body.message.text }}"
+              "value": "={{ $json.body.message.text }}"
             },
             {
               "id": "a2",
               "name": "telegramChatId",
               "type": "string",
-              "value": "={{ .body.message.chat.id }}"
+              "value": "={{ $json.body.message.chat.id }}"
             },
             {
               "id": "a3",
               "name": "sessionId",
               "type": "string",
-              "value": "=tg-{{ .body.message.chat.id }}"
+              "value": "=tg-{{ $json.body.message.chat.id }}"
             },
             {
               "id": "a4",
               "name": "fromName",
               "type": "string",
-              "value": "={{ .body.message.from.first_name }}"
+              "value": "={{ $json.body.message.from.first_name }}"
             }
           ]
         },
@@ -227,17 +227,6 @@
   ],
   "pinData": {},
   "connections": {
-    "Telegram Trigger": {
-      "main": [
-        [
-          {
-            "node": "Extract Message",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Extract Message": {
       "main": [
         [
@@ -325,12 +314,26 @@
           }
         ]
       ]
+    },
+    "Telegram Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "saveManualExecutions": true
+    "saveManualExecutions": true,
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveExecutionProgress": true
   },
   "tags": []
 }
