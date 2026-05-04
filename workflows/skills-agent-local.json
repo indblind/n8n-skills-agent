@@ -1,0 +1,303 @@
+{
+  "name": "Skills Agent \u2014 Local FS (OpenClaw)",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "allowFileUploads": true,
+          "allowedFilesMimeTypes": ""
+        }
+      },
+      "id": "2f22da99-20e2-413d-aff2-22342ab555f3",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "position": [
+        -784,
+        -160
+      ],
+      "webhookId": "3611645b-0df7-4c25-8d3b-f4abb9b01fa7",
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst BASE = '/files/skills';\n\nfunction walk(dir) {\n  try {\n    return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => {\n      const full = path.join(dir, e.name);\n      const rel  = path.relative(BASE, full);\n      if (e.isDirectory()) return [{ type: 'dir', path: rel }, ...walk(full)];\n      return [{ type: 'file', path: rel }];\n    });\n  } catch(e) { return []; }\n}\n\nconst skills = walk(BASE);\nreturn [{ json: { skills: JSON.stringify(skills, null, 2) } }];"
+      },
+      "id": "aa11bb22-cc33-dd44-ee55-ff6677889900",
+      "name": "Read Local Skills",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -560,
+        -160
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('When chat message received').item.json.chatInput }}",
+        "options": {
+          "systemMessage": "=You are a helpful assistant. Your capabilities and instructions for completing tasks are stored in skill files in skill directories, listed below in the Available Skills section.\n\n## How You Work\nYou do not have built-in knowledge of how to complete tasks. Your instructions live in the skill files. When a user asks you to do something:\n\n1. Identify which skill(s) are relevant to the request, traversing directories using the `List Local Skills Dir` tool as needed (ideally concurrently)\n2. Fetch those skill files using `Read Local Skill File`\n3. Follow the instructions in those files to complete the task\n\n## Available Skills\n{{ $('Read Local Skills').item.json.skills }}\n\n## Important\n- Do NOT answer based on general knowledge \u2014 your instructions are in the skill files\n- Skills dirs contain a SKILL.md that describes the skill and how to invoke it\n\n## File Input / Output Capabilities\n\n### Accepting Uploaded Files\nIf the user attaches a file or image to their message, use the `Read Uploaded File` tool to access it.\n- Text files (.txt, .csv, .json, .md) \u2192 returned as `textContent`\n- Images / binary files \u2192 returned as `dataBase64` (base64 string)\n\n### Saving Output Files\nAfter creating any file, use the `Save Output File` tool to persist it.\n- Pass `{ filename, content, encoding }` where encoding is `'text'` or `'base64'`\n- For binary outputs (PPTX, PDF, images), use `encoding: 'base64'`\n- For text outputs (CSV, JSON, HTML, Markdown), use `encoding: 'text'`\n- The tool returns the NAS file path \u2014 share it with the user\n\n### Creating PowerPoints\nWhen creating PPTX files with PptxGenJS, use `write({ outputType: 'base64' })` to get base64 output, then save via `Save Output File` with `encoding: 'base64'` and a `.pptx` extension.\n",
+          "maxIterations": 150
+        }
+      },
+      "id": "f48e987d-c929-4cb6-926a-898864202399",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        944,
+        -160
+      ],
+      "executeOnce": true,
+      "typeVersion": 3.1
+    },
+    {
+      "parameters": {},
+      "id": "670b4a12-57b3-45dd-8395-bab870d85ef5",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        688,
+        192
+      ],
+      "typeVersion": 1.3
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "ee6eacbf-8cc6-4600-81d4-1fee1e519ff5",
+      "name": "Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "position": [
+        496,
+        96
+      ],
+      "typeVersion": 1.3,
+      "credentials": {
+        "anthropicApi": {
+          "id": "dlJYiACxHjtYvxRI",
+          "name": "Anthropic API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "list_local_skills_dir",
+        "description": "List files and directories inside a skills directory. Pass a relative path like '' for root, 'carrier-portal' for that skill dir, or 'carrier-portal/scripts' for a subdir. Returns JSON array of {name, type, path}.",
+        "jsCode": "const fs = require('fs'), path = require('path');\nconst BASE = '/files/skills';\nconst rel  = (query || '').replace(/^\\//, '');\nconst dir  = path.join(BASE, rel);\nif (!dir.startsWith(BASE)) return 'Error: invalid path';\ntry {\n  const entries = fs.readdirSync(dir, { withFileTypes: true });\n  return JSON.stringify(entries.map(e => ({\n    name: e.name,\n    type: e.isDirectory() ? 'dir' : 'file',\n    path: path.join(rel, e.name)\n  })));\n} catch(e) { return 'Error: ' + e.message; }"
+      },
+      "id": "aa22bb33-cc44-dd55-ee66-ff7788990011",
+      "name": "List Local Skills Dir",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        832,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "name": "read_local_skill_file",
+        "description": "Read the text content of a skill file. Pass the relative path like 'carrier-portal/SKILL.md' or 'dev-browser/config.json'. Returns file text content.",
+        "jsCode": "const fs = require('fs'), path = require('path');\nconst BASE = '/files/skills';\nconst rel  = (query || '').replace(/^\\//, '');\nconst fp   = path.join(BASE, rel);\nif (!fp.startsWith(BASE)) return 'Error: invalid path';\ntry {\n  return fs.readFileSync(fp, 'utf8');\n} catch(e) { return 'Error: ' + e.message; }"
+      },
+      "id": "bb33cc44-dd55-ee66-ff77-aa8899001122",
+      "name": "Read Local Skill File",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        944,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "name": "save_output_file",
+        "description": "Save content to a file in the output folder (/files/n8n-output/). Pass JSON: {filename, content, encoding} where encoding is 'text' or 'base64'. Returns the file path.",
+        "jsCode": "let params;\ntry { params = JSON.parse(query); } catch(e) { params = {}; }\n\nconst filename = params.filename || 'output-' + Date.now() + '.txt';\nconst content  = params.content  || '';\nconst encoding = params.encoding || 'text';\n\nconst fs     = require('fs');\nconst path   = require('path');\nconst outDir = '/files/n8n-output';\n\nif (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });\n\nconst filePath = path.join(outDir, filename);\n\nif (encoding === 'base64') {\n  fs.writeFileSync(filePath, Buffer.from(content, 'base64'));\n} else {\n  fs.writeFileSync(filePath, content, 'utf8');\n}\n\nreturn `File saved: ${filePath}`;"
+      },
+      "id": "a1b2c3d4-e5f6-7890-save-fileoutputnode",
+      "name": "Save Output File",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "name": "read_uploaded_file",
+        "description": "Read files or images attached to the current chat message. Returns file metadata and content (textContent for text files, dataBase64 for binary/images).",
+        "jsCode": "const chatData = $('When chat message received').first().json;\nconst files    = chatData.files || chatData.attachments || [];\n\nif (!files.length) {\n  return 'No files were attached to this chat message.';\n}\n\nconst results = files.map((f, i) => {\n  const result = {\n    index: i,\n    filename: f.name || f.filename || `file_${i}`,\n    mimeType: f.mimeType || f.type || 'application/octet-stream',\n    size: f.size,\n  };\n\n  if (result.mimeType.startsWith('text/') || result.mimeType === 'application/json') {\n    try { result.textContent = Buffer.from(f.data, 'base64').toString('utf8'); }\n    catch(e) { result.textContent = f.data; }\n  } else {\n    result.dataBase64 = f.data;\n    result.note = 'Binary file \u2014 use dataBase64 for processing';\n  }\n\n  return result;\n});\n\nreturn JSON.stringify(results, null, 2);"
+      },
+      "id": "b2c3d4e5-f6a7-8901-read-uploadedfile",
+      "name": "Read Uploaded File",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "name": "playwright_browse",
+        "description": "Use a real Chromium browser to visit any URL and extract the page text and title. Pass JSON: {\"url\": string, \"screenshot\": bool (optional, default false)}. Returns: {url, title, bodyText (up to 6000 chars), screenshotPath (if screenshot=true)}.",
+        "jsCode": "let params;\ntry { params = JSON.parse(query); } catch(e) { params = { url: query }; }\nconst url = params.url;\nif (!url) return 'Error: url is required. Pass JSON: {\"url\": \"https://example.com\"}';\nconst takeScreenshot = params.screenshot || false;\nconst { chromium } = require('playwright');\nconst execPath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '/usr/bin/chromium-browser';\nconst browser = await chromium.launch({\n  executablePath: execPath,\n  args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']\n});\nconst page = await browser.newPage();\nawait page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });\nconst title    = await page.title();\nconst bodyText = await page.textContent('body');\nconst result = { url, title, bodyText: bodyText.trim().slice(0, 6000) };\nif (takeScreenshot) {\n  const fs = require('fs'), path = require('path');\n  const outDir = '/files/n8n-output';\n  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });\n  const filename = 'screenshot-' + Date.now() + '.png';\n  await page.screenshot({ path: path.join(outDir, filename), fullPage: false });\n  result.screenshotPath = '/files/n8n-output/' + filename;\n}\nawait browser.close();\nreturn JSON.stringify(result);"
+      },
+      "id": "17fb0ac9-bfe4-48c9-acd9-d93e5aca44f8",
+      "name": "Playwright: Browse & Screenshot",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "name": "ezlynx_login",
+        "description": "Log into EZLynx insurance platform. Handles 2FA via SMS automatically using the Mac bridge server. Checks for a saved session first \u2014 if still valid, returns immediately without 2FA. Call this before any other EZLynx tools. Returns JSON: { success, method, url, sessionFile } or { success: false, error }.",
+        "jsCode": "const fs   = require('fs');\nconst http = require('http');\nconst { chromium } = require('playwright');\n\nconst MAC_BRIDGE   = 'http://192.168.68.117:8099';\nconst SESSION_FILE = '/files/n8n-output/ezlynx_session.json';\nconst USERNAME     = 'rrossell';\nconst PASSWORD     = 'BuxFad-7qotni-remhaz';\n\nfunction httpGet(url, ms) {\n  ms = ms || 100000;\n  return new Promise((resolve, reject) => {\n    const req = http.get(url, { timeout: ms }, res => {\n      let d = '';\n      res.on('data', c => d += c);\n      res.on('end', () => resolve({ status: res.statusCode, body: d.trim() }));\n    });\n    req.on('error', reject);\n    req.on('timeout', () => { req.destroy(); reject(new Error('HTTP timeout')); });\n  });\n}\n\nconst LAUNCH_OPTS = {\n  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '/usr/bin/chromium-browser',\n  headless: true,\n  args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage']\n};\nconst UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';\n\nlet storageState = null;\nif (fs.existsSync(SESSION_FILE)) {\n  try { storageState = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8')); } catch(e) {}\n}\n\nif (storageState) {\n  const b1   = await chromium.launch(LAUNCH_OPTS);\n  const ctx1 = await b1.newContext({ userAgent: UA, storageState });\n  const pg1  = await ctx1.newPage();\n  await pg1.goto('https://app.ezlynx.com/web/home', { waitUntil: 'load', timeout: 25000 });\n  const url1 = pg1.url();\n  await b1.close();\n  if (!url1.includes('/auth/')) {\n    return JSON.stringify({ success: true, method: 'saved_session', url: url1 });\n  }\n}\n\nconst browser = await chromium.launch(LAUNCH_OPTS);\nconst ctx  = await browser.newContext({ userAgent: UA });\nconst page = await ctx.newPage();\n\nawait page.goto('https://app.ezlynx.com/auth/account/login', { waitUntil: 'load', timeout: 30000 });\nawait page.fill('input[type=text]', USERNAME);\nawait page.fill('input[type=password]', PASSWORD);\nawait page.click('button[type=submit]');\nawait page.waitForTimeout(5000);\nconst postLoginUrl = page.url();\n\nif (!postLoginUrl.includes('/auth/')) {\n  const state = await ctx.storageState();\n  fs.writeFileSync(SESSION_FILE, JSON.stringify(state, null, 2));\n  await browser.close();\n  return JSON.stringify({ success: true, method: 'no_2fa_required', url: postLoginUrl });\n}\n\nif (!postLoginUrl.includes('TwoFactorVerification')) {\n  await browser.close();\n  return JSON.stringify({ success: false, error: 'Unexpected page: ' + postLoginUrl });\n}\n\ntry {\n  const h = await httpGet(MAC_BRIDGE + '/health', 4000);\n  if (h.status !== 200) throw new Error('bridge status ' + h.status);\n} catch(be) {\n  await browser.close();\n  return JSON.stringify({ success: false, error: '2FA bridge unreachable: ' + be.message });\n}\n\nconst smsAt = Math.floor(Date.now() / 1000);\nawait page.check('#VerificationType_SMS-input');\nawait page.click('#two-factor-next');\nawait page.waitForTimeout(2000);\n\nconst afterParam = 'after=' + smsAt;\nconst cr = await httpGet(MAC_BRIDGE + '/sms-code?' + afterParam, 100000);\nif (cr.status !== 200 || !/^\\d{6}$/.test(cr.body)) {\n  await browser.close();\n  return JSON.stringify({ success: false, error: 'SMS code failed: ' + cr.status + ' ' + cr.body });\n}\n\nawait page.waitForSelector('#verification-code', { timeout: 10000 });\nawait page.fill('#verification-code', cr.body);\nawait page.click('#btnSend');\nawait page.waitForTimeout(3000);\n\nconst finalUrl = page.url();\nif (!finalUrl.includes('/auth/')) {\n  const state = await ctx.storageState();\n  fs.writeFileSync(SESSION_FILE, JSON.stringify(state, null, 2));\n  await browser.close();\n  return JSON.stringify({ success: true, method: '2fa_sms', url: finalUrl, code: cr.body });\n}\n\nawait browser.close();\nreturn JSON.stringify({ success: false, error: 'Still on auth page: ' + finalUrl });"
+      },
+      "id": "ezlynx-login-toolcode-001",
+      "name": "EZLynx: Login",
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        64
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Read Local Skills",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Local Skills": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Local Skills Dir": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Local Skill File": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Output File": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Uploaded File": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Playwright: Browse & Screenshot": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EZLynx: Login": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {}
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "versionId": "local-skills-v1",
+  "tags": []
+}
